@@ -1,0 +1,197 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Client {
+  id        Int      @id @default(autoincrement())
+  prenom    String
+  telephone String?  @unique
+  createdAt DateTime @default(now())
+
+  commandes Commande[]
+  dettes    Dette[]
+  ventes    Vente[]
+}
+
+model Produit {
+  id           Int      @id @default(autoincrement())
+  nom          String
+  categorie    String
+  stockInitial Decimal
+  stockActuel  Decimal
+  prixCarton   Decimal
+  createdAt    DateTime @default(now())
+  actif        Boolean  @default(true) // 🔥 AJOUT
+
+  lignesCommande    LigneCommande[]
+  lignesVente       LigneVente[]
+  Approvisionnement Approvisionnement[]
+}
+
+model Commande {
+  id        Int      @id @default(autoincrement())
+  clientId  Int?
+  statut    String   @default("EN_COURS") // EN_COURS | VENDUE | ANNULEE
+  type      String // COMPTANT | CREDIT
+  montant   Decimal
+  acompte   Decimal  @default(0)
+  createdAt DateTime @default(now())
+
+  client Client?         @relation(fields: [clientId], references: [id])
+  lignes LigneCommande[]
+}
+
+model LigneCommande {
+  id           Int     @id @default(autoincrement())
+  commandeId   Int
+  produitId    Int
+  quantite     Decimal
+  prixUnitaire Decimal
+
+  commande Commande @relation(fields: [commandeId], references: [id])
+  produit  Produit  @relation(fields: [produitId], references: [id])
+}
+
+model Dette {
+  id           Int      @id @default(autoincrement())
+  clientId     Int
+  montantTotal Decimal
+  montantPaye  Decimal  @default(0)
+  resteAPayer  Decimal
+  statut       String   @default("EN_COURS")
+  createdAt    DateTime @default(now())
+
+  client    Client     @relation(fields: [clientId], references: [id])
+  paiements Paiement[]
+}
+
+model Paiement {
+  id           Int      @id @default(autoincrement())
+  detteId      Int
+  montant      Decimal
+  modePaiement String // ACOMPTE | SOLDE
+  createdAt    DateTime @default(now())
+
+  dette Dette @relation(fields: [detteId], references: [id])
+}
+
+model Caisse {
+  id          Int      @id @default(autoincrement())
+  type        String // ENTREE | SORTIE
+  categorie   String    @default("VENTE")
+  montant     Decimal
+  description String?
+  createdAt   DateTime @default(now())
+}
+
+model Approvisionnement {
+  id          Int      @id @default(autoincrement())
+  produitId   Int
+  quantite    Decimal
+  prixAchat   Decimal?
+  fournisseur String?
+  stockAvant  Decimal
+  stockApres  Decimal
+  createdAt   DateTime @default(now())
+
+  produit Produit @relation(fields: [produitId], references: [id])
+}
+
+model Vente {
+  id        Int      @id @default(autoincrement())
+  clientId  Int?
+  type      String // COMPTANT | CREDITy  
+  montant   Decimal
+  createdAt DateTime @default(now())
+
+  client Client?      @relation(fields: [clientId], references: [id])
+  lignes LigneVente[]
+}
+
+model LigneVente {
+  id           Int     @id @default(autoincrement())
+  venteId      Int
+  produitId    Int
+  quantite     Decimal
+  prixUnitaire Decimal
+
+  vente   Vente   @relation(fields: [venteId], references: [id])
+  produit Produit @relation(fields: [produitId], references: [id])
+}
+
+model Depense {
+  id          Int      @id @default(autoincrement())
+  libelle     String
+  montant     Decimal
+  categorie   String
+  description String?
+  createdAt   DateTime @default(now())
+}
+
+model User {
+  id       Int     @id @default(autoincrement())
+  username String  @unique
+  email    String? @unique
+  password String
+
+  nom       String
+  telephone String?
+  imageUrl  String?
+
+  role Role
+
+  actif Boolean @default(true)
+
+  mustChangePassword Boolean @default(true)
+  googleEnabled      Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  notifications Notification[]
+
+  sentMessages     Message[] @relation("SentMessages")
+  receivedMessages Message[] @relation("ReceivedMessages")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  CAISSIER
+  COMPTABLE
+}
+
+model Notification {
+  id      Int     @id @default(autoincrement())
+  titre   String
+  message String
+  type    String
+  lu      Boolean @default(false)
+
+  userId Int?
+  user   User? @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model Message {
+  id         Int      @id @default(autoincrement())
+  senderId   Int
+  receiverId Int
+  content    String
+  lu         Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  sender   User @relation("SentMessages", fields: [senderId], references: [id])
+  receiver User @relation("ReceivedMessages", fields: [receiverId], references: [id])
+}
