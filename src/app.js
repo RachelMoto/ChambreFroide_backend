@@ -22,8 +22,12 @@ import caisseRoutes from "./routes/caisseRoutes.js";
 const app = express();
 
 app.use(cors({
-  origin: "http://localhost:5173",
+  origin: [
+    "http://localhost:5173",
+    "https://chambre-froide-c8mn.vercel.app"
+  ],
   methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true,
 }));
 app.use(express.json());
 
@@ -47,7 +51,7 @@ app.get("/", (req, res) => {
   res.send("API Chambre Froide OK");
 });
 
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
 app.listen(PORT, () => {
   console.log(`Serveur démarré sur le port ${PORT}`);
