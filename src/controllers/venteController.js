@@ -5,44 +5,44 @@ export const createVente = async (req, res) => {
   try {
     const { client, produits, type, acompte = 0 } = req.body;
 
-    // 1. CLIENT
     let clientDb = null;
 
-// Recherche seulement si téléphone renseigné
-if (client.telephone) {
-  clientDb = await prisma.client.findUnique({
-    where: {
-      telephone: client.telephone,
-    },
-  });
-}
+    if (client.telephone) {
+      clientDb = await prisma.client.findUnique({
+        where: {
+          telephone: client.telephone,
+        },
+      });
+    }
 
-await createNotification({
-  titre: "Nouvelle vente",
-  message: `Une vente a été effectuée`,
-  type: "SUCCESS"
-});
+    await createNotification({
+      titre: "Nouvelle vente",
+      message: "Une vente a été effectuée",
+      type: "SUCCESS",
+    });
 
-// Création si introuvable
-if (!clientDb) {
-  clientDb = await prisma.client.create({
-    data: {
-      prenom: client.prenom,
-      telephone: client.telephone || null,
-    },
-  });
-}
+    if (!clientDb) {
+      clientDb = await prisma.client.create({
+        data: {
+          prenom: client.prenom,
+          telephone: client.telephone || null,
+        },
+      });
+    }
 
-    // 2. VERIFICATION STOCK + TOTAL
     let total = 0;
 
     for (const p of produits) {
       const produit = await prisma.produit.findUnique({
-        where: { id: Number(p.produitId) },
+        where: {
+          id: Number(p.produitId),
+        },
       });
 
       if (!produit) {
-        return res.status(404).json({ error: "Produit introuvable" });
+        return res.status(404).json({
+          error: "Produit introuvable",
+        });
       }
 
       if (Number(produit.stockActuel) < Number(p.quantite)) {
@@ -53,17 +53,18 @@ if (!clientDb) {
 
       total += Number(p.prixUnitaire) * Number(p.quantite);
     }
-
-    // 3. CREER vente 
+     console.log("BODY :", req.body);
+     console.log("ACOMPTE REÇU :", acompte);
     const vente = await prisma.vente.create({
       data: {
         clientId: clientDb.id,
         montant: total,
-        type, // COMPTANT / CREDIT
+        type,
+        acompte: Number(acompte),
       },
     });
+    console.log("VENTE CREEE :", vente);
 
-    // 4. LIGNES + DIMINUTION STOCK
     for (const p of produits) {
       await prisma.ligneVente.create({
         data: {
@@ -75,7 +76,9 @@ if (!clientDb) {
       });
 
       await prisma.produit.update({
-        where: { id: Number(p.produitId) },
+        where: {
+          id: Number(p.produitId),
+        },
         data: {
           stockActuel: {
             decrement: Number(p.quantite),
@@ -84,7 +87,6 @@ if (!clientDb) {
       });
     }
 
-    // 5. CAISSE + DETTE
     if (type === "COMPTANT") {
       await prisma.caisse.create({
         data: {
@@ -98,29 +100,28 @@ if (!clientDb) {
     if (type === "CREDIT") {
       const reste = total - Number(acompte);
 
-      const dette = await prisma.dette.create({
+      await prisma.dette.create({
         data: {
           clientId: clientDb.id,
           montantTotal: total,
           montantPaye: Number(acompte),
+          acompteInitial: Number(acompte),
           resteAPayer: reste,
           statut: reste <= 0 ? "PAYEE" : "EN_COURS",
         },
       });
 
       if (Number(acompte) > 0) {
-
         await prisma.caisse.create({
-      data: {
-        type: "ENTREE",
-        montant: acompte,
-        description: "Vente crédit",
-      },
-    });
-  }
-}
+          data: {
+            type: "ENTREE",
+            montant: Number(acompte),
+            description: "Vente crédit",
+          },
+        });
+      }
+    }
 
-    // 6. RETOUR PROPRE (IMPORTANT pour frontend)
     return res.status(201).json({
       message: "Vente enregistrée avec succès",
       vente,
@@ -128,6 +129,7 @@ if (!clientDb) {
 
   } catch (error) {
     console.error(error);
+
     return res.status(500).json({
       error: error.message,
     });
@@ -154,10 +156,15 @@ export const getVentes = async (req, res) => {
       },
     });
 
-    res.json(ventes);
+    const ventesFormatees = ventes.map((vente) => ({
+      ...vente,
+      acompte: Number(vente.acompte || 0),
+    }));
+
+    return res.json(ventesFormatees);
 
   } catch (error) {
-    res.status(500).json({
+    return res.status(500).json({
       error: error.message,
     });
   }

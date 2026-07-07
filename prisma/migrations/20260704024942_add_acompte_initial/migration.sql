@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Dette" ADD COLUMN     "acompteInitial" DOUBLE PRECISION NOT NULL DEFAULT 0;

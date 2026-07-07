@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "Vente" ADD COLUMN     "acompteInitial" DOUBLE PRECISION NOT NULL DEFAULT 0;

@@ -66,6 +66,7 @@ model Dette {
   id           Int      @id @default(autoincrement())
   clientId     Int
   montantTotal Decimal
+  acompteInitial Float @default(0)
   montantPaye  Decimal  @default(0)
   resteAPayer  Decimal
   statut       String   @default("EN_COURS")
@@ -110,11 +111,12 @@ model Approvisionnement {
 model Vente {
   id        Int      @id @default(autoincrement())
   clientId  Int?
-  type      String // COMPTANT | CREDITy  
+  type      String
   montant   Decimal
+  acompte   Float @default(0)
   createdAt DateTime @default(now())
 
-  client Client?      @relation(fields: [clientId], references: [id])
+  client Client? @relation(fields: [clientId], references: [id])
   lignes LigneVente[]
 }
 
